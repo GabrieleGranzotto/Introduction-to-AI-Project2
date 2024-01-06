@@ -486,9 +486,27 @@ def localization(problem, agent) -> Generator:
     KB = []
 
     "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    for (x,y) in all_coords:
+        if (x,y) in walls_list:
+            KB.append(PropSymbolExpr(wall_str, x, y))
+        else:
+            KB.append(~PropSymbolExpr(wall_str, x, y))
 
     for t in range(agent.num_timesteps):
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, walls_grid, sensorModel = sensorAxioms, successorAxioms = allLegalSuccessorAxioms))
+        KB.append(PropSymbolExpr(agent.actions[t], time = t))
+        KB.append(fourBitPerceptRules(t, agent.getPercepts()))
+        possible_locations = []
+        for (x,y) in non_outer_wall_coords:
+            sol_KB = conjoin(KB)
+            pacman_loc = PropSymbolExpr(pacman_str, x, y, time = t)
+            if findModel(conjoin(sol_KB, pacman_loc)):
+                possible_locations.append((x,y))
+            if entails(sol_KB, pacman_loc):
+                KB.append(pacman_loc)
+            elif entails(sol_KB, ~pacman_loc):
+                KB.append(~pacman_loc)
+        agent.moveToNextState(agent.actions[t])
         "*** END YOUR CODE HERE ***"
         yield possible_locations
 
@@ -518,9 +536,26 @@ def mapping(problem, agent) -> Generator:
     KB.append(conjoin(outer_wall_sent))
 
     "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    KB.append(PropSymbolExpr(pacman_str, pac_x_0, pac_y_0, time = 0))
+    if known_map[pac_x_0][pac_y_0] == 1:
+        KB.append(PropSymbolExpr(wall_str, pac_x_0, pac_y_0))
+    elif known_map[pac_x_0][pac_y_0] == 0:
+        KB.append(~PropSymbolExpr(wall_str, pac_x_0, pac_y_0))
 
     for t in range(agent.num_timesteps):
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, known_map, sensorModel = sensorAxioms, successorAxioms = allLegalSuccessorAxioms))
+        KB.append(PropSymbolExpr(agent.actions[t], time = t))
+        KB.append(fourBitPerceptRules(t, agent.getPercepts()))
+        for (x,y) in non_outer_wall_coords:
+            sol_KB = conjoin(KB)
+            wall_loc = PropSymbolExpr(wall_str, x, y)
+            if entails(sol_KB, wall_loc):
+                KB.append(wall_loc)
+                known_map[x][y] = 1
+            elif entails(sol_KB, ~wall_loc):
+                KB.append(~wall_loc)
+                known_map[x][y] = 0
+        agent.moveToNextState(agent.actions[t])
         "*** END YOUR CODE HERE ***"
         yield known_map
 
@@ -550,9 +585,34 @@ def slam(problem, agent) -> Generator:
     KB.append(conjoin(outer_wall_sent))
 
     "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    KB.append(PropSymbolExpr(pacman_str, pac_x_0, pac_y_0, time = 0))
+    if known_map[pac_x_0][pac_y_0] == 1:
+        KB.append(PropSymbolExpr(wall_str, pac_x_0, pac_y_0))
+    elif known_map[pac_x_0][pac_y_0] == 0:
+        KB.append(~PropSymbolExpr(wall_str, pac_x_0, pac_y_0))    
 
     for t in range(agent.num_timesteps):
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, known_map, sensorModel = SLAMSensorAxioms, successorAxioms = SLAMSuccessorAxioms))
+        KB.append(PropSymbolExpr(agent.actions[t], time = t))
+        KB.append(numAdjWallsPerceptRules(t, agent.getPercepts()))   
+        possible_locations = []
+        for (x,y) in non_outer_wall_coords:
+            sol_KB = conjoin(KB)
+            wall_loc = PropSymbolExpr(wall_str, x, y)
+            pacman_loc = PropSymbolExpr(pacman_str, x, y, time = t)
+            if entails(sol_KB, wall_loc):
+                KB.append(wall_loc)
+                known_map[x][y] = 1
+            elif entails(sol_KB, ~wall_loc):
+                KB.append(~wall_loc)
+                known_map[x][y] = 0    
+            if findModel(conjoin(sol_KB, pacman_loc)):
+                possible_locations.append((x,y))
+            if entails(sol_KB, pacman_loc):
+                KB.append(pacman_loc)
+            elif entails(sol_KB, ~pacman_loc):
+                KB.append(~pacman_loc)   
+        agent.moveToNextState(agent.actions[t])  
         "*** END YOUR CODE HERE ***"
         yield (known_map, possible_locations)
 
